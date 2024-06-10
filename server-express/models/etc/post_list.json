@@ -1,0 +1,54 @@
+{
+    "message" : "ok",
+    "data" : {
+       "posts_list" : [
+                              {
+                                 "post_id" : 1,
+                                 "title" : "제목 1",
+                                 "create_at": "2021-01-01 00:00:00",
+                                 "user_id": "steven",
+                                 "good_num": 0,
+                                 "comment_num": 3,
+                                 "view_num": 0
+                               },
+                               {
+                                "post_id" : 2,
+                                "title" : "제목 2",
+                                "create_at": "2021-01-01 00:00:00",
+                                "user_id": "steven",
+                                "good_num": 0,
+                                "comment_num": 2,
+                                "view_num": 0
+                              },
+                              {
+                                "post_id" : 3,
+                                "title" : "제목 3",
+                                "create_at": "2021-01-01 00:00:00",
+                                "user_id": "steven",
+                                "good_num": 0,
+                                "comment_num": 0,
+                                "view_num": 0
+                              },
+                              {
+                                "post_id" : 4,
+                                "title" : "제목 4",
+                                "create_at": "2021-01-01 00:00:00",
+                                "user_id": "steven",
+                                "good_num": 0,
+                                "comment_num": 0,
+                                "view_num": 0
+                              },
+                              {
+                                "post_id" : 5,
+                                "title" : "제목 5",
+                                "create_at": "2021-01-01 00:00:00",
+                                "user_id": "steven",
+                                "good_num": 0,
+                                "comment_num": 0,
+                                "view_num": 0
+                              }
+                        ]
+     
+    }
+}
+                              

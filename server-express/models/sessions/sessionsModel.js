@@ -1,3 +1,4 @@
+// sessionModels
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
@@ -11,7 +12,12 @@ class SessionModel extends EventEmitter {
     // 파일이 존재하면 세션 데이터를 로드
     if (fs.existsSync(this.filePath)) {
       const data = fs.readFileSync(this.filePath, 'utf8');
-      this.sessions = JSON.parse(data);
+      try {
+        this.sessions = JSON.parse(data);
+      } catch (err) {
+        console.error('Failed to parse session data:', err);
+        this.sessions = {};
+      }
     }
   }
 
@@ -37,18 +43,18 @@ class SessionModel extends EventEmitter {
     req.session = session;
   }
 
+  // 세션 갱신 (예: 갱신 시간을 업데이트하는 방식으로 구현)
   touch(sid, session, callback) {
-    // 세션 갱신 (예: 갱신 시간을 업데이트하는 방식으로 구현할 수 있음)
     const currentSession = this.sessions[sid];
     if (currentSession) {
-      // 여기서 실제 갱신 로직을 추가할 수 있음 (예: lastAccessTime 업데이트)
-      currentSession.lastAccessTime = new Date();
+      currentSession.cookie = session.cookie; // Update cookie properties if needed
+      currentSession.lastAccessTime = new Date(); // 갱신 시간 업데이트
       this.sessions[sid] = currentSession;
       this.saveSessions(callback);
     } else {
       callback(new Error('Session not found'));
     }
-}
+  }
 
   // 세션 데이터를 파일에 저장
   saveSessions(callback) {

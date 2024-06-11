@@ -1,8 +1,8 @@
 {
-  "48809116-0404-4c05-b289-bed759163edf": {
+  "7e48e825-27c8-41da-bcc2-6e5c47ce316a": {
     "userId": "5fe3bd16-3a3b-4c98-a1d0-561b4bb6b484"
   },
-  "FDH0RN_DzehkPPXpXIlbWQeKr9guASZT": {
+  "Dy9z-LoSEBClIyNxcIJvN2pkapOSSzoO": {
     "cookie": {
       "originalMaxAge": null,
       "expires": null,
@@ -10,7 +10,14 @@
       "httpOnly": true,
       "path": "/"
     },
-    "sessionToken": "48809116-0404-4c05-b289-bed759163edf",
-    "lastAccessTime": "2024-06-10T08:30:41.675Z"
+    "sessionToken": "6c2b7610-83b6-406e-95ef-075104079a89",
+    "lastAccessTime": "2024-06-10T12:36:22.382Z"
+  },
+  "23c47312-d87a-454e-b9fc-9a532a135e5c": {
+    "userId": "5fe3bd16-3a3b-4c98-a1d0-561b4bb6b484"
+  },
+  "6c2b7610-83b6-406e-95ef-075104079a89": {
+    "userId": "5fe3bd16-3a3b-4c98-a1d0-561b4bb6b484",
+    "lastAccessTime": "2024-06-10T12:36:22.379Z"
   }
 }

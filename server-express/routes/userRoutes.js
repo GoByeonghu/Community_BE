@@ -14,14 +14,14 @@ const ensureAuthenticated = require('../utils/AuthMiddleware.js'); // 미들웨�
 router.use(express.json()); 
 
 // GET /api/users
-router.get('/', ensureAuthenticated, (req, res) => {
+router.get('/', (req, res) => {
   const users = userControl.getAllUsers();
-  res.json({ message: 'This is a protected route', user: req.user });
-  //res.json(users);
+  //res.json({ message: 'This is a protected route', user: req.user });
+  res.json(users);
 });
 
 // POST /api/users
-router.post('/',  upload.single('profile_image'), (req, res) => {
+router.post('/',  ensureAuthenticated, upload.single('profile_image'), (req, res) => {
   const newUser = JSON.parse(req.body.userData); // 사용자 정보
   const imageFile = req.file; // 이미지 파일 여부 확인
   let userID;
@@ -46,7 +46,7 @@ router.post('/',  upload.single('profile_image'), (req, res) => {
 });
 
 // GET /api/users/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', ensureAuthenticated,(req, res) => {
   const userId = req.params.id;
   const user = userControl.getUserById(userId);
   if (!user) {
@@ -57,7 +57,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /api/users/:id - 특정 사용자 수정
-router.put('/:id', upload.single('profile_image'), (req, res) => {
+router.put('/:id', ensureAuthenticated, upload.single('profile_image'), (req, res) => {
   const userId = req.params.id;
   const newData = JSON.parse(req.body.userData); // 사용자 정보
   const imageFile = req.file; // 이미지 파일 여부 확인
@@ -81,14 +81,14 @@ router.put('/:id', upload.single('profile_image'), (req, res) => {
 });
 
 // DELETE /api/users/:id - 특정 사용자 삭제
-router.delete('/:id', (req, res) => {
+router.delete('/:id', ensureAuthenticated, (req, res) => {
   const userId = req.params.id;
   userControl.deleteUser(userId); // userControl에서 특정 사용자를 삭제합니다.
   res.json({ message: 'User deleted successfully' });
 });
 
 // PATCH /api/users/:id - 특정 사용자의 비밀번호 변경
-router.patch('/:id', (req, res) => {
+router.patch('/:id', ensureAuthenticated, (req, res) => {
   const userId = req.params.id;
   const target = req.query.target; // 쿼리 파라미터에서 target 값을 가져옵니다.
 

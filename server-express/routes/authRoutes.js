@@ -22,6 +22,31 @@ router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logout successfully' });
 });
 
+// 로그아웃
+router.post('/logout-session', (req, res) => {
+  const sessionToken = req.session.sessionToken;
+
+  // 세션 토큰이 존재하는 경우 세션을 삭제
+  if (sessionToken) {
+    req.sessionStore.destroy(sessionToken, (err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error deleting session' });
+      }
+
+      // 세션 삭제 후 쿠키 삭제
+      res.clearCookie('token', { httpOnly: true, sameSite: 'Strict' });
+
+      // 로그아웃이 성공했음을 클라이언트에게 응답
+      return res.status(200).json({ message: 'Logout successfully' });
+    });
+  } else {
+    // 세션 토큰이 없으면 쿠키만 삭제
+    res.clearCookie('token', { httpOnly: true, sameSite: 'Strict' });
+    return res.status(200).json({ message: 'Logout successfully' });
+  }
+});
+
+
 // 토큰 유효성 확인
 router.post('/check-token', (req, res) => {
 

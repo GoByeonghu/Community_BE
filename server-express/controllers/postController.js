@@ -1,100 +1,180 @@
-const fs = require( 'fs');
-const path  = require( 'path');
-const posts = require( '../models/posts/posts.js');
-const {postImageDirectory} = require( '../localsetting.js');
-const {v4} = require( 'uuid'); // UUID 버전 4 모듈 가져오기
+const fs = require('fs');
+const path = require('path');
+const { v4 } = require('uuid');
+const db = require('../database/models');
+const Post = db.models.posts;
+const User = db.models.users;
+const { postImageDirectory } = require('../localsetting.js');
 
 // 모든 게시글을 가져오는 메서드
-function getAllPosts() {
-  return posts.slice(); // 복사본을 반환하여 원본 데이터가 수정되지 않도록 합니다.
+async function getAllPosts() {
+  return await Post.findAll();
 }
 
-// 특정 ID를 가진 게시글을 가져오는 메서드
-function getPostById(postId) {
-  return posts.find(post => post.id === postId);
-}
-
-// 사용자 데이터를 파일에 저장하는 함수
-function savePostsToFile(posts) {
-    //const __dirname = path.dirname(new URL(import.meta.url).pathname);
-    const data = JSON.stringify(posts, null, 2);
-    const filePath = path.resolve(__dirname, '../models/posts/posts.js'); // 절대 경로 설정
-    fs.writeFileSync(filePath, `module.exports =  ${data};`, 'utf8');
-}
-  
-  function saveImage(postId, imageFile) {
-    const imageName = `${postId}.jpg`; // 이미지 파일명을 userId.jpg로 설정
-    const postDirectory = path.join(postImageDirectory, postId); // 사용자 디렉토리 경로 설정
-    const imagePath = path.join(postDirectory, imageName); // 이미지 저장 경로 설정
-  
-    // 사용자 디렉토리 생성 (존재하지 않는 경우에만)
-    if (!fs.existsSync(postDirectory)) {
-      fs.mkdirSync(postDirectory, { recursive: true }); // 재귀적으로 디렉토리 생성
-    }
-  
-    // 이미지 파일을 버퍼로 저장
-    fs.writeFile(imagePath, imageFile.buffer, (err) => {
-      if (err) {
-        console.error('Error saving image:', err);
-      }
+// 모든 게시글을 가져오되 id대신 닉네임을 반환하는 메서드
+async function getAllPostsWithNickname() {
+  try {
+    // 게시물 조회
+    const posts = await Post.findAll({
+      include: {
+        model: User,
+        attributes: ['nickname'],
+        as: 'user', // 게시물과 사용자 모델의 관계가 정의되어 있어야 합니다.
+      },
     });
-  
-    return imageName;
+
+    // 게시물 객체에서 user_id 필드 제외하고 nickname 값만 추출하여 새로운 배열로 반환
+    const formattedPosts = posts.map(post => ({
+      id: post.id, // 게시물의 다른 필드들
+      title: post.title,
+      image: post.image,
+      nickname: post.user.nickname,
+      content: post.content,
+      deadline : post.deadline,
+      created_at: post.created_at,
+      updated_at: post.updated_at,
+      like_count: post.like_count,
+      dislike_count: post.dislike_count
+    }));
+
+    return formattedPosts;
+  } catch (error) {
+    throw new Error(error.message);
   }
+}
+
+async function getPostById(postId) {
+  // 게시물과 관련된 사용자의 nickname을 포함하여 조회
+  const post = await Post.findByPk(postId, {
+    include: {
+      model: User,
+      attributes: ['nickname'], // nickname 필드만 가져옴
+      as: 'user', // 관계의 별칭이 'user'라고 가정
+    },
+  });
+
+  if (!post) {
+    return null;
+  }
+
+  // JSON으로 변환하고 user_id 필드를 제거한 후 nickname 필드를 추가
+  const postJSON = post.toJSON();
+  postJSON.nickname = post.user.nickname; // nickname 필드 추가
+  delete postJSON.user_id; // user_id 필드 제거
+  delete postJSON.user; // user 객체 제거
+
+  return postJSON;
+}
+
+function saveImage(postId, imageFile) {
+  const imageName = `${postId}.jpg`; // 이미지 파일명을 postId.jpg로 설정
+  const postDirectory = postImageDirectory;//path.join(postImageDirectory, postId); // 게시글 디렉토리 경로 설정
+  const imagePath = path.join(postDirectory, imageName); // 이미지 저장 경로 설정
+
+  // 게시글 디렉토리 생성 (존재하지 않는 경우에만)
+  if (!fs.existsSync(postDirectory)) {
+    fs.mkdirSync(postDirectory, { recursive: true }); // 재귀적으로 디렉토리 생성
+  }
+
+  // 이미지 파일을 버퍼로 저장
+  fs.writeFileSync(imagePath, imageFile.buffer);
+  return imagePath;
+}
 
 // 게시글 추가 메서드
-function addPost(newPost) {
-    const postId = v4(); // UUID 버전 4로 새로운 ID 생성
-    const postWithId = { ...newPost, id: postId }; // 새로운 사용자 객체에 ID 추가
-    posts.push(postWithId);
-    savePostsToFile(posts);
-    return postId;
-  }
+async function addPost(newPost) {
   
-  function addPostWithImage(newPost, imageFile) {
-    const postId = v4(); // UUID 버전 4로 새로운 ID 생성
-    const postWithId = { ...newPost, id: postId }; // 새로운 사용자 객체에 ID 추가
+  const post = await Post.create(newPost);
+  return post.id;
+}
+
+async function addPostWithImage(newPost, imageFile) {
+  //console.log(newPost);
+  const imagePath = saveImage(v4(), imageFile); // 이미지 저장 및 파일명 가져오기
+  newPost.image = imagePath;
+  const post = await Post.create(newPost);
+  console.log(post);
+  return post.id;
+}
+
+// 게시글 삭제 메서드
+async function deletePost(postId) {
+  const post = await Post.findByPk(postId);
+  if (post) {
+    const imagePath = post.image;
+
+    // 이미지 파일 삭제
+    if (imagePath) {
+      try {
+        await fs.promises.unlink(path.resolve(imagePath));
+      } catch (error) {
+        console.error(`Failed to delete image file: ${imagePath}`, error);
+      }
+    }
+
+    // 게시글 삭제
+    await post.destroy();
+  }
+}
+
+// 게시글 업데이트 메서드
+async function updatePost(postId, newData) {
+  const post = await Post.findByPk(postId, {
+    include: {
+      model: User,
+      attributes: ['nickname'], // nickname 필드만 가져옴
+      as: 'user', // 관계의 별칭이 'user'라고 가정
+    },
+  });
+
+  if (post) {
+    await post.update(newData);
+
+    // JSON으로 변환하고 user_id 필드를 제거한 후 nickname 필드를 추가
+    const postJSON = post.toJSON();
+    postJSON.nickname = post.user.nickname; // nickname 필드 추가
+    delete postJSON.user_id; // user_id 필드 제거
+    delete postJSON.user; // user 객체 제거
+
+    return postJSON;
+  } else {
+    return null;
+  }
+}
+
+async function updatePostWithImage(postId, newData, imageFile) {
+  const post = await Post.findByPk(postId, {
+    include: {
+      model: User,
+      attributes: ['nickname'], // nickname 필드만 가져옴
+      as: 'user', // 관계의 별칭이 'user'라고 가정
+    },
+  });
+
+  if (post) {
     const imageName = saveImage(postId, imageFile); // 이미지 저장 및 파일명 가져오기
-    postWithId.image = imageName; // 사용자 객체에 이미지 파일명 추가
-    posts.push(postWithId); // 사용자 추가
-    savePostsToFile(posts); // 사용자 정보를 파일에 저장
-    return postId;
+    newData.image = imageName;
+    await post.update(newData);
+
+    // JSON으로 변환하고 user_id 필드를 제거한 후 nickname 필드를 추가
+    const postJSON = post.toJSON();
+    postJSON.nickname = post.user.nickname; // nickname 필드 추가
+    delete postJSON.user_id; // user_id 필드 제거
+    delete postJSON.user; // user 객체 제거
+
+    return postJSON;
+  } else {
+    return null;
   }
+}
 
-  // 게시글 삭제 메서드
-function deletePost(postId) {
-    let temp_posts = posts;
-    temp_posts = temp_posts.filter(post => post.id !== postId);
-    savePostsToFile(temp_posts);
-  }
-
-
-  function updatePost(postId, newData) {
-    const index = posts.findIndex(post => post.id === postId);
-    if (index !== -1) {
-      posts[index] = { ...posts[index], ...newData };
-      savePostsToFile(posts);
-    }
-    return posts[index];
-  }
-
-  function updatePostWithImage(postId, newData, imageFile){
-    const index = posts.findIndex(post => post.id === postId);
-    if (index !== -1) {
-        const imageName = saveImage(postId, imageFile); // 이미지 저장 및 파일명 가져오기
-        posts[index] = { ...posts[index], ...newData, image: imageName };
-        savePostsToFile(posts);
-    }
-    return posts[index];
-  }
-
-
-  module.exports =  {
+module.exports = {
   getAllPosts,
+  getAllPostsWithNickname,
   getPostById,
   addPost,
   addPostWithImage,
   deletePost,
   updatePost,
-  updatePostWithImage
+  updatePostWithImage,
 };

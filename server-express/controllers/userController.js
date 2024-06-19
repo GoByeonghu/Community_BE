@@ -1,101 +1,219 @@
 const fs =require( 'fs');
 const path  =require( 'path');
-const users =require( '../models/users/users.js');
+const { v4: uuidv4 } = require('uuid');
 const {profileImageDirectory} =require( '../localsetting.js');
-const {v4} =require( 'uuid'); // UUID 버전 4 모듈 가져오기
+const db = require('../database/models');
+const User = db.models.users;
 
 // 모든 사용자를 가져오는 메서드
-function getAllUsers() {
-  return users.slice(); // 복사본을 반환하여 원본 데이터가 수정되지 않도록 합니다.
-}
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.json(users);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
 // 특정 ID를 가진 사용자를 가져오는 메서드
-function getUserById(userId) {
-  return users.find(user => user.id === userId);
-}
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// 특정 id를 가진 사용자의 닉네임을 가져오는 함수
+exports.getNicknameById = async (id) => {
+  try {
+    const user = await User.findByPk(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user.nickname;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+
 
 // 사용자 추가 메서드
-function addUser(newUser) {
-  const userId = v4(); // UUID 버전 4로 새로운 ID 생성
-  const userWithId = { ...newUser, id: userId }; // 새로운 사용자 객체에 ID 추가
-  users.push(userWithId);
-  saveUsersToFile(users);
-  return userId;
-}
+exports.addUser = async (userData) => {
+  try {
+    const { nickname, password, email, profile_image } = userData;
+    const newUser = {
+      id: uuidv4(),
+      nickname,
+      password,
+      email,
+      profile_image
+    };
+    const createdUser = await User.create(newUser);
+    let result = createdUser.toJSON();
+    delete result.id;
+    delete result.password;
 
-function addUserWithImage(newUser, imageFile) {
-  const userId = v4(); // UUID 버전 4로 새로운 ID 생성
-  const userWithId = { ...newUser, id: userId }; // 새로운 사용자 객체에 ID 추가
-  const imageName = saveImage(userId, imageFile); // 이미지 저장 및 파일명 가져오기
-  userWithId.image = imageName; // 사용자 객체에 이미지 파일명 추가
-  users.push(userWithId); // 사용자 추가
-  saveUsersToFile(users); // 사용자 정보를 파일에 저장
-  return userId;
-}
-
-// 사용자 수정 메서드
-function updateUser(userId, newData) {
-  const index = users.findIndex(user => user.id === userId);
-  if (index !== -1) {
-    users[index] = { ...users[index], ...newData };
-    saveUsersToFile(users);
+    return result;
+  } catch (error) {
+    throw new Error(error.message);
   }
-  return users[index];
-}
+};
 
-function updateUserWithImage(userId, newData, imageFile) {
-  const index = users.findIndex(user => user.id === userId);
-  if (index !== -1) {
-    const imageName = saveImage(userId, imageFile); // 이미지 저장 및 파일명 가져오기
-    users[index] = { ...users[index], ...newData, image: imageName };
-    saveUsersToFile(users);
-    return users[index];
+// 사용자 추가 메서드 (이미지 파일이 있는 경우)
+exports.addUserWithImage = async (userData, imageFile) => {
+  const { nickname, password, email } = userData;
+
+  try {
+    // 이미지 파일 저장 관련 로직
+    const ext = path.extname(imageFile.originalname);
+    const filename = uuidv4() + ext;
+    const imagePath = path.join(profileImageDirectory, filename);
+
+    // 이미지 파일을 지정된 경로에 저장
+    fs.writeFileSync(imagePath, imageFile.buffer);
+
+    const newUser = {
+      id: uuidv4(),
+      nickname,
+      password,
+      email,
+      profile_image: imagePath, // 이미지 파일 이름을 데이터베이스에 저장
+    };
+
+    const createdUser = await User.create(newUser);
+    let result = createdUser.toJSON();
+    delete result.id;
+    delete result.password;
+
+    return result;
+    //return createdUser; // 생성된 사용자의 ID 반환
+  } catch (error) {
+    throw new Error(error.message);
   }
-}
+};
+
+// 사용자 업데이트 메서드 (이미지 파일이 없는 경우)
+exports.updateUser = async (userID, userData) => {
+  try {
+    const id = userID;
+    const { nickname, password, email } = userData;
+
+    // 기존 사용자 정보 가져오기
+    const user = await User.findByPk(id);
+    if (!user) {ß
+      return null;
+    }
+    // 필드별 업데이트 여부 확인
+    const updatedUserData = {
+      nickname: nickname || user.nickname,
+      password: password || user.password,
+      email: email || user.email,
+      profile_image: user.profile_image, // 이미지는 변경되지 않음
+    };
+
+    const [updated] = await User.update(updatedUserData, { where: { id } });
+    if (!updated) {
+      throw new Error(error.message);
+    }
+    const updatedUser = await User.findByPk(id);
+    let result = updatedUser.toJSON();
+    delete result.id;
+    delete result.password;
+
+    return result;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// 사용자 업데이트 메서드 (이미지 파일이 있는 경우)
+exports.updateUserWithImage = async (userID, userData, newImageFile) => {
+  const id  = userID;
+  const { nickname, password, email } = userData;
+  const imageFile = newImageFile;
+
+  try {
+    // 기존 사용자 정보 가져오기
+    const user = await User.findByPk(id);
+    if (!user) {
+      throw new Error(error.message);
+    }
+
+    let profile_image = user.profile_image;
+
+    if (imageFile) {
+      // 이미지 파일 저장 관련 로직
+      const ext = path.extname(imageFile.originalname);
+      const filename = id + ext;
+      profile_image = path.join(profileImageDirectory, filename);
+
+      // 이미지 파일을 지정된 경로에 저장
+      fs.writeFileSync(profile_image, imageFile.buffer);
+    }
+
+    // 필드별 업데이트 여부 확인
+    const updatedUserData = {
+      nickname: nickname || user.nickname,
+      password: password || user.password,
+      email: email || user.email,
+      profile_image, // 새 이미지가 있으면 업데이트, 없으면 기존 값 유지
+    };
+    console.log(updatedUserData);//////////////////////
+    const [updated] = await User.update(updatedUserData, { where: { id } });
+
+    if (!updated) {
+      throw new Error(error.message);
+    }
+
+    const updatedUser = await User.findByPk(id);
+
+
+    let result = updatedUser.toJSON();
+    delete result.id;
+    delete result.password;
+
+    return result;
+
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
 
 // 사용자 삭제 메서드
-function deleteUser(userId) {
-  let temp_users = users;
-  temp_users = temp_users.filter(user => user.id !== userId);
-  saveUsersToFile(temp_users);
-}
-
-// 사용자 데이터를 파일에 저장하는 함수
-function saveUsersToFile(users) {
-  //const __dirname = path.dirname(new URL(import.meta.url).pathname);
-  const data = JSON.stringify(users, null, 2);
-  const filePath = path.resolve(__dirname, '../models/users/users.js'); // 절대 경로 설정
-  fs.writeFileSync(filePath, `module.exports = ${data};`, 'utf8');
-
-}
-
-function saveImage(userId, imageFile) {
-  const imageName = `${userId}.jpg`; // 이미지 파일명을 userId.jpg로 설정
-  const userDirectory = path.join(profileImageDirectory, userId); // 사용자 디렉토리 경로 설정
-  const imagePath = path.join(userDirectory, imageName); // 이미지 저장 경로 설정
-
-  // 사용자 디렉토리 생성 (존재하지 않는 경우에만)
-  if (!fs.existsSync(userDirectory)) {
-    fs.mkdirSync(userDirectory, { recursive: true }); // 재귀적으로 디렉토리 생성
-  }
-
-  // 이미지 파일을 버퍼로 저장
-  fs.writeFile(imagePath, imageFile.buffer, (err) => {
-    if (err) {
-      console.error('Error saving image:', err);
+exports.deleteUser = async (userId) => {
+  try {
+    const user = await User.findByPk(userId);
+    
+    if (!user) {
+      return false;
     }
-  });
 
-  return imageName; // 저장된 이미지 파일명 반환
-}
+    const profileImagePath = user.profile_image;
 
+    // 프로필 이미지 파일 삭제
+    if (profileImagePath) {
+      try {
+        await fs.promises.unlink(path.resolve(profileImagePath));
+      } catch (error) {
+        console.error(`Failed to delete profile image file: ${profileImagePath}`, error);
+      }
+    }
 
-module.exports = {
-  getAllUsers: getAllUsers,
-  getUserById: getUserById,
-  addUser: addUser,
-  addUserWithImage: addUserWithImage,
-  updateUser: updateUser,
-  deleteUser: deleteUser,
-  updateUserWithImage: updateUserWithImage
+    // 사용자 삭제
+    const deleted = await User.destroy({ where: { id: userId } });
+
+    if (!deleted) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    throw new Error(error.message);
+  }
 };

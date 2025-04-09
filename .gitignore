@@ -1,3 +1,5 @@
 server-express/file_server/
 server-express/node_modules/
 localsetting.js
+server-express/database/config/
+
